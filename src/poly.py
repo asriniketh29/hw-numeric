@@ -105,6 +105,79 @@ class Poly:
     >>> print(Poly([1, 0, 2]))
     2x**2 + 1
     '''
+    def __init__(self, coeffs):
+        coeffs = list(coeffs)              # copy, don't mutate caller's list
+        while coeffs and coeffs[-1] == 0:  # check non-empty first
+            coeffs.pop()
+        self.coeffs = coeffs if coeffs else [0]
+
+    def __repr__(self):
+        return f"Poly({self.coeffs})"
+
+    def __str__(self):
+        if self.coeffs == [0]:
+            return "0"
+        out = ""
+        for n in range(len(self.coeffs) - 1, -1, -1):
+            c = self.coeffs[n]
+            if c == 0:
+                continue
+            mag = abs(c)
+            if n == 0:
+                body = str(mag)
+            else:
+                coef = "" if mag == 1 else str(mag)
+                body = coef + "x" + ("" if n == 1 else f"**{n}")
+            if out == "":
+                out = ("-" if c < 0 else "") + body
+            else:
+                out += (" - " if c < 0 else " + ") + body
+        return out
+
+    def __call__(self, x):
+        return self.eval_horner(x)
+
+    def __eq__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        return self.coeffs == other.coeffs
+
+    __hash__ = None
+
+    def derivative(self):
+        return Poly([i * self.coeffs[i] for i in range(1, len(self.coeffs))])
+
+    def __add__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        n = max(len(self.coeffs), len(other.coeffs))
+        a = self.coeffs + [0] * (n - len(self.coeffs))
+        b = other.coeffs + [0] * (n - len(other.coeffs))
+        return Poly([x + y for x, y in zip(a, b)])
+
+    def __sub__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        n = max(len(self.coeffs), len(other.coeffs))
+        a = self.coeffs + [0] * (n - len(self.coeffs))
+        b = other.coeffs + [0] * (n - len(other.coeffs))
+        return Poly([x - y for x, y in zip(a, b)])
+
+    def __mul__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        return Poly(_karatsuba(self.coeffs, other.coeffs))
+
+    def __pow__(self, n):
+        if not isinstance(n, int):
+            return NotImplemented
+        if n < 0:
+            raise ValueError("negative exponent")
+        result = Poly([1])
+        for _ in range(n):
+            result = result * self
+        return result
+
     def eval_naive(self, x):
         '''
         Evaluate by summing a_i * x**i one term at a time.  The
@@ -156,6 +229,40 @@ class Poly:
         return Poly(out)
 
 
+    def __neg__(self):
+        return Poly([-c for c in self.coeffs])
+
+
+    def mul_karatsuba(self, other):
+        return Poly(_karatsuba(self.coeffs, other.coeffs))
+
+
+    def __iadd__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        self.coeffs = (self + other).coeffs
+        return self
+
+
+    def __isub__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        self.coeffs = (self - other).coeffs
+        return self
+
+
+    def __imul__(self, other):
+        if not isinstance(other, Poly):
+            return NotImplemented
+        self.coeffs = (self * other).coeffs
+        return self
+
+
+    def __ipow__(self, n):
+        self.coeffs = (self ** n).coeffs
+        return self
+
+
 def _karatsuba(a, b):
     '''
     Product of two coefficient lists by Karatsuba's algorithm.
@@ -179,3 +286,38 @@ def _karatsuba(a, b):
     >>> _karatsuba([0], [1, 2, 3])
     [0, 0, 0]
     '''
+    len_a = len(a)
+    len_b = len(b)
+    if len(a) != len(b):
+        if len(a) < len(b):
+            add = len(b) - len(a)
+            a = a + [0] * add
+        elif len(a) > len(b):
+            add = len(a) - len(b)
+            b = b + [0] * add
+    n = 1
+    while n < len(a):
+        n = n * 2
+    a = a + [0] * (n - len(a))
+    b = b + [0] * (n - len(b))
+    if n == 1:
+        return [a[0] * b[0]]
+    m = n // 2
+    a_lo = a[:m]
+    a_hi = a[m:]
+    b_lo = b[:m]
+    b_hi = b[m:]
+    z0 = _karatsuba(a_lo, b_lo)
+    z2 = _karatsuba(a_hi, b_hi)
+    sum_a = [x + y for x, y in zip(a_lo, a_hi)]
+    sum_b = [x + y for x, y in zip(b_lo, b_hi)]
+    z1 = _karatsuba(sum_a, sum_b)
+    mid = [x - y - z for x, y, z in zip(z1, z0, z2)]
+    result = [0] * (2 * n)
+    for i in range(len(z0)):
+        result[i] += z0[i]
+    for i in range(len(mid)):
+        result[m + i] += mid[i]
+    for i in range(len(z2)):
+        result[2 * m + i] += z2[i]
+    return result[:len_a + len_b - 1]
