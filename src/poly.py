@@ -106,8 +106,8 @@ class Poly:
     2x**2 + 1
     '''
     def __init__(self, coeffs):
-        coeffs = list(coeffs)              # copy, don't mutate caller's list
-        while coeffs and coeffs[-1] == 0:  # check non-empty first
+        coeffs = list(coeffs)
+        while coeffs and coeffs[-1] == 0:
             coeffs.pop()
         self.coeffs = coeffs if coeffs else [0]
 
@@ -228,14 +228,11 @@ class Poly:
                 out[i + j] += ai * bj
         return Poly(out)
 
-
     def __neg__(self):
         return Poly([-c for c in self.coeffs])
 
-
     def mul_karatsuba(self, other):
         return Poly(_karatsuba(self.coeffs, other.coeffs))
-
 
     def __iadd__(self, other):
         if not isinstance(other, Poly):
@@ -243,20 +240,17 @@ class Poly:
         self.coeffs = (self + other).coeffs
         return self
 
-
     def __isub__(self, other):
         if not isinstance(other, Poly):
             return NotImplemented
         self.coeffs = (self - other).coeffs
         return self
 
-
     def __imul__(self, other):
         if not isinstance(other, Poly):
             return NotImplemented
         self.coeffs = (self * other).coeffs
         return self
-
 
     def __ipow__(self, n):
         self.coeffs = (self ** n).coeffs
